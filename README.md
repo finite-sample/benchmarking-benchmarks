@@ -1,6 +1,6 @@
 # Benchmarking Benchmarks
 
-Status: internal working repository. Do not publish or create a remote without an explicit decision from the author.
+Status: working paper and research repository.
 
 This repository develops *A Benchmark for Benchmarks*, an argument and research agenda about what machine-learning benchmarks should measure and how they should be built.
 
