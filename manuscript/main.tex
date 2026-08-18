@@ -1,8 +1,10 @@
 \documentclass{article}
 
 \usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
 \usepackage{natbib}
 \usepackage{hyperref}
+\usepackage{setspace}
 
 \hypersetup{
   colorlinks=false,
@@ -14,128 +16,143 @@
 \date{Working draft, August 2026}
 
 \begin{document}
+\singlespacing{}
+\input{../build/audit-macros.tex}
 \maketitle
 
-A benchmark is a measuring instrument. A test set is a collection of observations. A benchmark adds the argument that turns responses to those observations into evidence about a model-development procedure. The argument must say what capability is measured, which cases the claim covers, which evaluation conditions may vary, and what comparison or decision the score supports. Without that argument, a leaderboard number describes performance on a file and protocol but does not establish general progress.
+\begin{abstract}
+Benchmark datasets give researchers an agreed-upon mark to beat. But a score is useful only when we know what it measures and what it is meant to stand for. This paper treats a benchmark as a measuring instrument. Any claim beyond one observed evaluation implies a reference set: the cases, test forms, runs, tasks, or problems that could have been different while still counting as another use of the benchmark. The reference set gives coverage a denominator and uncertainty a meaning. It also separates performance in a target population from claims about a latent capability and shows why representative samples, designed cases, and paired interventions answer different questions. A small systematic audit of twelve text-classification benchmark families illustrates the problem. Most define a construct and an intended use. None fully defines a target population or justifies its metric, and none includes a complete set of controlled response pairs. Each benchmark should state the claim it supports, name the reference set, and provide the evidence that the claim requires.
+\end{abstract}
 
-Benchmark datasets such as MNIST and ImageNet have stimulated work by providing agreed-upon marks to beat. Many benchmark datasets, though, are assembled from available data without a clear population, coverage plan, or interpretation of the resulting score. This makes it hard to explain why the best-performing model varies across datasets, compare models, or forecast performance on a new task \citep{dehghani2021benchmark,bouthillier2021variance}.
+Benchmark datasets like MNIST and ImageNet abound in machine learning. Such datasets stimulate work on a problem by providing an agreed-upon mark to beat. Many of the datasets, however, are constructed in an ad hoc manner. As a result, it is hard to understand why the best-performing model varies across datasets, to compare models, and to confidently prognosticate about performance on a new dataset \citep{dehghani2021benchmark,bouthillier2021variance}.
 
-Measurement theory supplies principles for deciding what a score means and which evidence it needs \citep{aera2014standards}. Software testing supplies the simpler question of test coverage: which specified requirements does the test suite exercise \citep{ammann2016softwaretesting}? Causal inference supplies a second design: intervene on an input, hold specified features fixed, and observe whether the model changes as it should. A good benchmark combines these ideas. It samples from a target population to estimate expected performance and uses designed tests to cover important capabilities, invariances, and failure modes that ordinary sampling may rarely expose.
+To build a good benchmark, start by defining the problem precisely. Let me illustrate the point with an example. Let us say that we want to test the performance of a cat-dog photo classifier. Famously, if all the photos of dogs are taken outside and all the photos of cats are taken inside, the classifier that performs best may be an indoor-outdoor classifier. That may be a reasonable outcome if we expect to see the same pattern in use. Or it may not be. If we want to measure the capacity to identify cats and dogs, we need evidence that the score is not driven by irrelevant information \citep{cronbach1955construct}.
 
-\section*{Start with a measurement contract}
+Consider a different example. Say that we want to test a model that infers race from a person's last name. We could combine whatever labeled datasets are available. Performance on that mixture would be hard to interpret because the mixture does not map to a well-defined problem in the world. To specify the problem, we need to specify the population. If the population is people in the 2010 United States Census and the only input is a surname in the Census tables, the aggregated conditional distribution supplies the best possible hard classification under zero-one loss. Change the population, year, categories, available name fields, or cost of an error, and the answer can change \citep{uscensus2016surnames,laohaprapanon2025ethnicolr}.
 
-Validity is not a permanent property of a dataset, test, or score. It is the degree to which evidence and theory support a proposed interpretation for a proposed use \citep{cronbach1955construct,messick1995validity,kane2013validating}. Benchmark builders should therefore state a measurement contract before collecting examples. The contract defines:
+Both examples make the same point. A benchmark is not just a file with inputs and labels. It is a measuring instrument. It joins a claim, a set of cases, a scoring rule, and an intended use. It also implies a reference set: the cases or conditions for which the observed result is meant to supply evidence. Minus those, a leaderboard number describes performance on one file under one protocol. It does not establish general progress.
 
-\begin{enumerate}
-  \item the object being evaluated, usually a model-development procedure under fixed training, tuning, prompting, and resource conditions rather than a bare model file;
-  \item the construct or capability the score is meant to represent;
-  \item the target population and universe of admissible tasks, items, annotators, runs, prompts, and occasions;
-  \item the loss, scoring rule, and treatment of abstentions;
-  \item the comparison or decision the score will support; and
-  \item the evaluation conditions that are fixed, sampled, or allowed to vary.
-\end{enumerate}
+The common thread across construct validity, educational measurement, software test coverage, and causal design is that evidence must match the claim. That requires answering four questions in order. What does the score mean? What observations or problems is it meant to stand for? How well does the benchmark cover that reference set? How much does the answer change across admissible repetitions? A small systematic audit then shows what can and cannot be recovered from the documentation of existing text-classification benchmarks.
 
-The cat-dog example shows why the contract matters. If all dog photographs are taken outside and all cat photographs inside, an indoor-outdoor classifier may perform best. That score may predict labels in a population with the same association. It does not show that the model distinguishes cats from dogs without using setting as a shortcut. Setting then contributes construct-irrelevant variation. A dataset with too few breeds, poses, or occlusions creates the complementary problem of construct underrepresentation.
+\section*{Start with the claim}
 
-Population and loss are equally important. A benchmark for name-based demographic inference can pool available labeled datasets, as in large-scale evaluations of name-to-gender inference \citep{krstovski2023gender}. Its overall score describes the curator's mixture of sources unless that mixture represents a stated population. Suppose instead that the task is to predict the Census race or Hispanic-origin category of a person selected at random from the 2010 United States population, given only a surname represented in the Census tabulations. The tabulated conditional distribution supplies the Bayes-optimal hard classification under zero-one loss. Change the population, year, name fields, categories, or loss, and the optimal rule can change \citep{uscensus2016surnames,laohaprapanon2025ethnicolr}.
+A benchmark should begin with a short measurement contract. The contract states what is being evaluated, what the score means, which population or task universe it covers, which errors matter, and what comparison or decision the score will support.
 
-An interpretation and use argument has four links:
+Validity follows the claim. A score may be useful for choosing between two procedures on a fixed test set and still be poor evidence about a new hospital, dialect, year, or task. Reliable labels do not establish that the test covers the target population. A representative sample does not rescue a metric that assigns the wrong costs to errors. Validity is therefore not a permanent property of a dataset. It is the support for an interpretation and use \citep{messick1995validity,kane2013validating}.
 
-\begin{enumerate}
-  \item \textbf{Scoring.} The rule that transforms predictions into a score preserves the performance feature of interest.
-  \item \textbf{Generalization.} The score generalizes across the admissible examples, tasks, annotators, training runs, prompts, and occasions.
-  \item \textbf{Extrapolation.} Performance in the benchmark domain supports a claim about the target population or deployment setting.
-  \item \textbf{Decision.} Using the score to select, reject, or deploy a model improves the decision under the relevant costs and harms.
-\end{enumerate}
+The object being measured also needs care. In most leaderboards, we are not evaluating a bare model file. We are evaluating a development procedure that includes training data, tuning, prompting, external tools, compute, random initialization, and rules about test access. Two scores are comparable only when those conditions are fixed or recorded.
 
-Evidence for one link does not validate the others. Correct labels do not establish extrapolation. A representative sample does not rescue an arbitrary metric. A predictive relationship does not establish that a deployment rule is acceptable.
+Is the benchmark measuring a latent trait? Sometimes. If the claim is expected error in a stated population, the target is an observable quantity. A probability sample and a suitable loss estimate it directly. There is no need to call the result latent ability. If the claim is about an unobserved capability such as reasoning or language understanding, educational measurement has more to offer. Item response theory can model item difficulty and discrimination, show where a test is informative, and link different test forms \citep{vania2021irt,rodriguez2021leaderboards}.
 
-\section*{Define test coverage}
+Those gains come with assumptions. A one-dimensional scale assumes that a single capability is enough to order systems. It also assumes that items are independent after that capability is held fixed. Shared templates, repeated source documents, and several distinct skills can violate those assumptions. Multidimensional IRT can help, but its dimensions still need names, items, and evidence \citep{reckase2009mirt}. Test information is not the same as test coverage. A short test can measure one narrow dimension precisely while missing much of the construct.
 
-Coverage has no meaning without a specification. In software testing, a coverage criterion defines requirements from a model of the program, input space, logic, or syntax; a test suite covers the requirements it exercises \citep{ammann2016softwaretesting}. Benchmark coverage should work the same way. The benchmark blueprint defines the relevant content, capabilities, conditions, and response relations before anyone counts covered cases.
+\section*{Name the reference set}
 
-Benchmarks need three distinct kinds of coverage.
+An observed score almost always stands in for results we did not observe. Any uncertainty statement makes that substitution explicit. Call the set of admissible repetitions the reference set. It may contain other items, test forms, runs, tasks, settings, or whole problems. Statistical properties such as bias, interval calibration, and error rates always refer, at least implicitly, to some series of problems on which a procedure might be used. Generalizability theory makes the same move in measurement: an observation is a sample from a universe of observations that the user would accept as substitutes for the one at hand \citep{cronbach1972dependability,gelman2026workflow}.
 
-\begin{enumerate}
-  \item \textbf{Population coverage} asks whether sampled cases represent the target distribution well enough to estimate expected loss. A probability sample, or a defensible weighted approximation, supports claims about how often the system succeeds in that population.
-  \item \textbf{Construct coverage} asks whether the test suite exercises the facets named in the construct. For text classification, a blueprint might cross topic, text length, label structure, production channel, language variety, time, and named shifts. Deliberate oversampling can cover rare but important cells, but the resulting frequency is not a population frequency.
-  \item \textbf{Contrast coverage} asks whether the suite tests specified relations among inputs and outputs. Examples include invariance to an irrelevant edit, a directional response to added evidence, reduced confidence under contradiction, and a null response to a negative control.
-\end{enumerate}
+The reference set depends on the claim. A target population of cases is one reference set, but not the only one. If the claim is expected error among United States news stories in 2026, the cases in that population form the relevant set. If the claim is that a ranking survives random initialization, runs form another set. If the claim is that a method works on new hospitals, dialects, or classification problems, then hospitals, dialects, or problems are the units that must vary. One benchmark may invoke several reference sets, but each supports a different inference.
 
-The three coverage claims answer different questions. Population coverage gives common cases their population weight. Construct coverage prevents common cases from crowding rare capabilities out of the test. Contrast coverage isolates relations that a collection of unrelated examples cannot identify cleanly. A benchmark can do well on one and poorly on another.
+This distinction tells us what uncertainty means. Conditional on a fixed model, file, labels, and deterministic protocol, the reported score is exact for that evaluation. An item standard error enters when the file is treated as a sample of possible items. Variation across seeds enters when runs are treated as admissible repetitions. Variation across datasets enters when the claim concerns new datasets or problems. None of these quantities can stand in for the others.
 
-The blueprint can express coverage requirements over both cases and relations. An ordinary test item covers a region of the admissible input space. A paired intervention covers a specified relation between two cases. In that sense, sampled items cover points and designed interventions cover edges. A suite with many sampled points but no controlled edges says little about invariance or directional response. A suite with thousands of edges generated from one template says little about population performance or behavior outside that local neighborhood. Repeated tasks, prompts, runs, and occasions extend coverage to the conditions across which the score is supposed to generalize.
+Not every reference set comes with a probability distribution. Random sampling can support design-based uncertainty over cases. A model or prior can describe a broader set of possible problems. When datasets or tasks are chosen because they are available, a sensitivity analysis can show how much conclusions depend on those choices, but it cannot turn the available collection into a probability sample. The assumptions that define the repetitions belong in the benchmark record.
 
-Coverage is necessary but not sufficient. Executing every line of a program does not show that the program is correct. Covering every cell in a benchmark blueprint does not show that labels are valid, scores are dependable, or performance transfers to deployment. Nor does a large test set guarantee coverage. Ten thousand variants from one template may cover one requirement and supply much less independent information than their row count suggests. Reports should show the blueprint cells and independent item families covered, leave uncovered cells visible, and state the minimum evidence required to call a cell covered. A single percentage is useful only when its denominator and adequacy rule were fixed in advance. This meaning of coverage is distinct from the repeated-sampling coverage of a confidence interval.
+Generalizability theory gives a way to study several facets of a reference set at once. Items, tasks, raters, runs, prompts, and occasions are facets of the measurement. Their variance components show which admissible changes alter the score. If the claim concerns performance on new tasks, the task is a sampling unit. If the use is ranking systems, relative precision matters. If the use is certifying that a system clears a threshold, absolute precision matters. The same benchmark can be dependable enough for one use and not the other.
 
-\section*{Combine observation with designed interventions}
+\section*{Coverage starts with the reference set}
 
-A representative test sample and a designed intervention support different estimands. For a target distribution $P$, ordinary evaluation estimates expected loss, $E_{(X,Y)\sim P}[\ell(f(X),Y)]$. The unit is a sampled case, and the population distribution determines its weight. This design estimates how well the procedure performs on average and within prespecified subgroups or conditions.
+Coverage is a simple idea from software testing. First write down what the program must do. Then ask which requirements the tests exercise \citep{ammann2016softwaretesting}. A benchmark needs the same discipline. Counting rows is not enough because coverage has no meaning until we know the denominator.
 
-A designed intervention starts with a base case $x$, applies a transformation $T$, and compares $f(T(x))$ with $f(x)$. The unit is the base case or independent template family. The treatment is the edit. The outcome is the change in a prediction, loss, calibration, confidence, or abstention. This design estimates a causal effect of the evaluator's intervention on the model's behavior. It does not estimate how often the edited condition occurs in the world.
-
-The causal interpretation depends on design assumptions. The transformation must change the intended feature, preserve every feature the specification says should remain fixed, stay inside the domain where the oracle is valid, and avoid artifacts that reveal the test generator. Human review can test some of these assumptions but cannot make them automatic. Synthetic interventions can also cover only the confounders and causal features the designer anticipated \citep{sood2025causaldebiasing}.
-
-The intervention is ordinarily the treatment, not an instrumental variable. An instrumental-variable design would require a separate variable that changes the treatment and affects the model output only through that treatment. Most benchmark perturbations instead manipulate the feature of interest directly. Their identifying assumption is closer to a controlled experiment: absent the targeted change, the paired cases would elicit the same relevant response.
-
-Designed tests can encode several claims:
-
-\begin{itemize}
-  \item A minimum-functionality test supplies simple cases for a named requirement. It contributes construct coverage but need not estimate a contrast.
-  \item An invariance test changes a feature declared irrelevant and expects no meaningful change in output.
-  \item A directional test changes relevant evidence and prespecifies the expected sign or ordering of the response.
-  \item A negative-control test introduces a feature with no plausible effect under the construct. A nonzero response reveals a shortcut, an invalid control, or another source of error \citep{lipsitch2010negative}.
-  \item An impossibility or contradiction test prespecifies uncertainty, neutrality, or abstention when the evidence cannot support a confident answer.
-\end{itemize}
-
-CheckList provides one implementation for natural-language tasks. It crosses linguistic capabilities with minimum-functionality, invariance, and directional-expectation tests \citep{ribeiro2020checklist}. Its contribution is broader than a collection of extra examples: it turns claims about behavior into explicit test requirements. The same logic applies to images, speech, tabular data, and multimodal systems when domain knowledge supports valid interventions.
-
-These tests identify observable response contrasts, not the model's internal reasoning or a causal relation in the world. They should be grouped by independent template family, validated by people, versioned, and kept separate from population performance. A weighted aggregate is defensible only when the weights represent deployment frequency, expected harm, or another prespecified decision rule. Otherwise a macro-average measures the curator's inventory.
-
-\section*{Collect evidence beyond coverage}
-
-Coverage establishes that the benchmark asks the intended questions. A validity argument must still establish that the answers support the intended inference.
-
-Content evidence comes from the blueprint and its justification. Response evidence comes from designed interventions and rival-hypothesis tests. Internal-structure evidence asks whether item and subscore relationships match the claimed structure of the capability. A strongly multidimensional benchmark should report a profile rather than hide the differences in one total score. Relations with other measures provide convergent and discriminant evidence: a proposed capability score should agree with defensible measures of the same capability and remain distinct from measures of other capabilities \citep{campbell1959multitrait}. Agreement among benchmarks that share sources, templates, or annotation artifacts may reflect common method variance instead.
-
-Fairness requires more than demographic representation. Representation can improve population and construct coverage, but benchmark builders must also test whether instructions, labels, item content, scoring, and access create construct-irrelevant differences. Matched interventions can ask whether a represented-group attribute changes a response when the construct says it should not. Such tests concern model behavior on item content; they are not identical to differential item functioning in psychometrics, where people are the test takers.
-
-Consequences are part of the proposed use. Benchmarks reward some tasks and metrics, encourage optimization against public test sets, and may invite selective reporting. A score used to claim general progress or allocate resources needs stronger evidence than the same score used as a diagnostic during development \citep{dehghani2021benchmark}.
-
-\section*{Make scores dependable}
-
-Reliability is broader than agreement among labelers. Generalizability theory defines a universe of admissible observations and estimates how score variance changes across its facets \citep{cronbach1972dependability}. Relevant facets include tasks, examples, annotators, label aggregation rules, training runs, prompts, demonstrations, decoding settings, software, hardware, time, and benchmark form.
-
-The benchmark should state which facets are fixed and which are sampled. A score on a fixed set of datasets supports a claim about those datasets. A claim about new tasks needs a defensible task universe and between-task uncertainty. A generalizability study can decompose the variance. A decision study can then ask whether another task, training run, item family, or annotator would most improve precision. Choosing a large round test-set size without locating the dominant error source is not a design.
-
-The required precision depends on the use. Ranking two procedures is a relative decision. Certifying that a procedure exceeds a deployment threshold is an absolute decision. The same benchmark can be dependable enough for one and not the other. Reports should include uncertainty from population sampling, training, model selection, and intervention families whenever those sources may vary in the intended use \citep{bouthillier2021variance}.
-
-Label reliability is one part of this analysis. Agreement statistics must match the label scale and sampling design. Low agreement may reveal unclear instructions, ambiguous cases, plural but legitimate judgments, or an infeasible task. Majority vote, averaging, and adjudication define different targets; none automatically produces truth \citep{artstein2008agreement}. Test-set label errors can be common enough to alter rankings \citep{northcutt2021labelerrors}.
-
-Scores are comparable only when evaluation conditions are controlled or modeled. Benchmarks should freeze preprocessing, tuning access, prompts, external data, compute, decoding, metric implementation, and treatment of abstentions. Immutable versions and anchor items are needed when scores must be linked over time. Public exposure and repeated leaderboard use create contamination and practice effects.
-
-\section*{Build the benchmark in order}
-
-The measurement argument implies an order of work.
+There are at least three useful denominators.
 
 \begin{enumerate}
-  \item Write the measurement contract and the scoring, generalization, extrapolation, and decision claims.
-  \item Define a blueprint with population, construct, and contrast coverage requirements. Mark prohibited shortcuts and unsupported uses.
-  \item Establish provenance, consent where applicable, privacy protection, licenses, and permitted uses. Public accessibility is not blanket authorization \citep{gebru2021datasheets,longpre2024provenance}.
-  \item Draw a representative sample for population claims. Add identified oversamples for subgroup precision and separate designed interventions for rare capabilities and failure modes.
-  \item Specify labels, instructions, annotators, aggregation, scoring, metrics, thresholds, oracles, and abstention rules.
-  \item Pilot items and intervention families for ambiguity, difficulty, discrimination, dependence, label error, and artifacts. Exact and near-duplicate entities should not cross splits \citep{barz2020duplicates}.
-  \item Run a generalizability study and allocate tasks, items, annotators, intervention families, and repetitions according to the variance components and precision target.
-  \item Publish a validation dossier with the coverage matrix, score profile, uncertainty, rival hypotheses, provenance, version, intended uses, and unsupported uses. Data statements and datasheets provide useful documentation templates \citep{bender2018datastatements,gebru2021datasheets}.
+  \item \textbf{Population coverage} asks whether sampled cases, and their weights, represent the population for which we want expected performance. Common cases receive their population weight. A benchmark made from available datasets can still be useful, but its overall score describes the curator's mixture unless a broader link is established.
+  \item \textbf{Construct coverage} asks whether the test exercises the parts of the claimed construct. For text classification, relevant dimensions may include topic, text length, label structure, source, dialect, and time. Age is its own zip code. Text from different eras can use very different language. Rare but important cells may need deliberate oversampling, but their frequency in the test should not be mistaken for their frequency in the world.
+  \item \textbf{Contrast coverage} asks whether the benchmark tests required relations among inputs and outputs. Should a harmless spelling change leave the prediction fixed? Should added evidence move confidence in a stated direction? Should a contradiction cause uncertainty or abstention? A test suite covers a contrast when it includes the required change and states the expected response.
 \end{enumerate}
 
-This order changes how disputed examples should be discussed. An AG News story about a Massachusetts sales-tax holiday can plausibly be called Business news. Without the category definition and decision process, a user cannot tell whether the label is an error or an intended boundary case \citep{zhang2015character}. ImageNet's review of its person subtree found offensive, sensitive, and non-imageable categories and led to the removal of more than 600,000 images. The defect involved the construct and its consequences, not merely inconsistent coders \citep{imagenet2019update}.
+These questions cannot be collapsed without losing meaning. Population coverage tells us how often a procedure succeeds in a case reference set. Construct coverage tells us which parts of the claimed capability it has faced. Contrast coverage tells us whether it responds correctly across a set of controlled changes. A benchmark may do well on one and poorly on another.
 
-\section*{Research agenda}
+Size matters, but only after the reference set and source of uncertainty are clear. A large test set can reduce item-sampling error for a fixed population. It cannot repair narrow content or establish portability across tasks. Ten thousand variations of one template may count as ten thousand rows and far fewer than ten thousand independent tests. Coverage should therefore be reported as a profile: the cells, requirements, and independent item families covered, along with the gaps.
 
-Two studies would test whether current benchmark practice supports the claims made from it. First, define a universe of text-classification tasks and estimate whether a procedure selected on one task wins on a new task. The main quantities are winner-transfer probability, selection regret, and rank portability. Uncertainty must treat the task, not merely the test example, as a sampling unit.
+\section*{Designed tests are evidence}
 
-Second, test whether papers disproportionately report eligible benchmarks on which the proposed procedure performs well. Reported tables alone cannot answer this because outcomes on omitted benchmarks are missing by construction. A defensible study must define eligibility without consulting results and recover performance for a sample of reported and unreported eligible paper-benchmark pairs. Evidence that inclusion rises with relative advantage is consistent with selective benchmarking, but unmeasured suitability and cost remain rival explanations.
+Representative observations and designed tests answer different questions. A representative sample estimates how well a procedure performs in a target population. A designed case asks whether it can handle a named requirement, including a rare but costly one. A paired intervention starts with a base case, changes one feature, and asks whether the output stays fixed or moves as predicted.
+
+Designed tests need reference sets too. A designed test has a set of admissible requirements, base cases, and transformations. A fixed pair establishes what the system does on that pair. A claim about unseen variants requires a larger reference set and a rule for selecting from it. A benchmark can use representative base cases and designed changes, but the population weights and intervention weights answer different questions.
+
+The paired design has a causal flavor. The evaluator applies the change, so the edit is ordinarily the treatment. The key assumption is that the edit changes the intended feature and nothing else that matters. It is generally not an instrumental-variable design: that would require a separate variable that changes the treatment and affects the output only through that treatment. Artifacts in synthetic edits, or unintended changes in meaning, break the intended comparison \citep{sood2025causaldebiasing}.
+
+Designed tests have a long history. Educational assessments build tasks to elicit evidence about a claim \citep{mislevy2003structure}. Metamorphic software tests specify how outputs should relate across transformed inputs \citep{chen2018metamorphic}. CheckList crosses linguistic capabilities with minimum-functionality, invariance, and directional-expectation tests \citep{ribeiro2020checklist}. Contrast sets make small, meaningful edits that expose local decision boundaries \citep{gardner2020contrast}.
+
+Ribeiro-style behavioral tests are therefore one instance of a larger measurement principle. The theory says which behavior is relevant. The test encodes that behavior as a requirement. The intervention isolates the comparison. The result supplies one piece of validity evidence.
+
+Not every designed case is an intervention. A difficult example may improve construct coverage without isolating a contrast. A paired test becomes an intervention only when the changed feature, the features held fixed, and the expected response are stated. Even then, the test says nothing about how common the case is in the world unless its base cases were sampled for that purpose.
+
+Designed tests do not have to be the whole benchmark. They can be an important part. Population cases, rare challenge cases, and controlled pairs should usually be reported separately. Combining them into one number is defensible only when the weights follow a stated population, expected harm, or decision rule. Otherwise the average measures the curator's inventory.
+
+\section*{The rest of the instrument}
+
+Coverage alone is not enough. Good benchmarks also need good labels. Reliability asks whether the labeling operation can be repeated. Low agreement may mean that the directions are poor, the task is hard, or several judgments are defensible. Pooling judgments can reduce noise, but majority vote does not automatically create truth \citep{artstein2008agreement}.
+
+Validity asks whether the label maps to the construct. A broken clock is consistent but not a valid measure of time. Labelers may use a confounder, inherit a bad category, or apply a biased rule. Construct definitions, expert review, rival measures, negative controls, and designed interventions can all supply evidence. None is a universal cure.
+
+Documentation is part of measurement because it lets readers recover these choices. Is news about a sales-tax holiday Business news? It could be. Or it could be an error. It depends on how the category was defined and what the labelers were told. Without that information, users are left to their imagination.
+
+The data must also be authorized. Public access is not blanket permission. Provenance, copyright, privacy, consent where applicable, and permitted uses belong in the benchmark record \citep{gebru2021datasheets,longpre2024provenance}. Diversity matters when a claim spans groups or language varieties. Duplicates and related entities matter because they can make a test look larger and easier than it is. Doing well on one example should not earn credit several times, and the same movie, patient, document, or template should not silently cross training and test splits \citep{barz2020duplicates}.
+
+\section*{What existing benchmarks document}
+
+Several recent efforts audit related parts of benchmark practice. {\citet{bhardwaj2024curation}} assess data curation and documentation for sixty datasets from the NeurIPS Datasets and Benchmarks track. {\citet{reuel2024betterbench}} evaluate twenty-four benchmarks against practices spanning a benchmark's lifecycle. {\citet{kovatchev2024transparency}} study how item distributions affect scores and ranks. These efforts make clear that benchmark design can be studied systematically. The audit below asks a narrower question that they leave open: what measurement argument connects a benchmark's cases and labels to the interpretation of its score?
+
+\subsection*{Design}
+
+The sampling frame is the final public Papers with Code snapshot, retrieved July 28, 2025 \citep{pwcArchive2025}. It contains \,\AuditFrameCount\, entries listed directly under Text Classification. Before looking at audit outcomes, I required at least one leaderboard result, an English-language record, a discrete label for one or more text inputs, an identifiable dataset and protocol, and one record per benchmark family. The screen left \,\AuditEligibleCount\, families.
+
+I divided the eligible families by the number of result rows in the frozen leaderboard: one, two to four, and five or more. Within each group, I used a fixed random seed and selected four families. One provisionally eligible entry, Twitter Sentiment Analysis, pointed to a paper that evaluated IMDB and SRAA and did not identify a Twitter dataset or protocol. I recorded the exclusion and took the next family in the frozen random order. The final sample contains \,\AuditSampleCount\, families.
+
+For each family, I reviewed the primary paper, official data page, and evaluation documentation. I coded fourteen questions about the target population, construct, use, metric, source frame, content blueprint, labels, designed tests, dependability, governance, and duplicates. A {\emph{partial}} rating means that some useful evidence is present but an important part is missing. {\emph{Not found}} means that I did not recover the evidence from the reviewed sources. It does not prove that the work was never done. The complete frame, codebook, ratings, sources, and evidence locators are in the repository.
+
+This is an illustrative audit. Twelve families are too few for precise population estimates, and the present coding is by one reviewer. I therefore report counts and cases, not a weighted estimate of how common each practice is. Independent recoding is needed before making population-prevalence claims.
+
+\subsection*{Results}
+
+\input{../build/audit-summary.tex}
+
+The benchmarks usually tell us what label to predict. Ten of twelve fully define the construct and nine state an intended use. The reference set is much less clear. None fully states a target population for its score. Ten identify only a bounded source or mixture, and two provide no recoverable population claim. Only three fully examine score dependability across at least one facet. A reader can often recover the observed cases but not the larger set of cases, runs, or problems for which the score is meant to supply evidence. None fully justifies its metric. Six give a partial reason and six simply report the conventional measure.
+
+The same pattern appears within labels. Seven fully document how labels were made. Only two fully report label reliability, and only two provide full validity evidence. Five include designed or stratified cases for named requirements. None provides a complete set of controlled response pairs; GLUE's diagnostic data offers the one partial example. Three fully document duplicate or dependence checks.
+
+The profiles are more informative than a rank. AG News and DBpedia, for instance, are carefully balanced model-comparison datasets. AG News takes fixed numbers from the four largest source categories. DBpedia takes equal random samples from fourteen ontology classes \citep{zhang2015character}. These choices make comparisons convenient. They do not make the reported error a population error, because the class balance and source mixture are set by the benchmark builder.
+
+LoT-insts makes a different choice. It separates many-, medium-, few-, and zero-shot cases, removes redundant name variants, and reports both closed- and open-set tasks \citep{qi2023lot}. That is a serious attempt at construct coverage. But the deliberately filtered and stratified score should not be read as the frequency-weighted error for institution names in the wild. The design is useful precisely because it gives hard, rare cases more attention.
+
+ThreatGram101 documents its public Telegram channels, threat taxonomy, expert input, privacy choices, and ethics review. It also plainly states that one annotator labeled the data and that inter-annotator agreement could not be measured \citep{ravi2025threatgram}. That candor makes the limitation visible. A reader knows which evidence is present and which is not.
+
+CLAUDETTE shows how much stronger the record can be. Its authors tie eight types of potentially unfair contract clauses to European consumer law, publish detailed annotation rules, use an additional independently labeled test set, and report a Cohen's kappa of .871 \citep{lippi2019claudette}. Yet its fifty terms-of-service contracts are purposively selected from major platforms. The label argument is strong; the population argument remains limited. Again, one total quality score would hide the useful distinction.
+
+\section*{Build from the claim outward}
+
+These principles suggest a simple order of work.
+
+\begin{enumerate}
+  \item State the claim: the object, construct, population, loss, and intended use.
+  \item Name the reference set. State which cases, test forms, runs, tasks, settings, or problems are admissible repetitions and which conditions are fixed.
+  \item Decide whether the score estimates observable performance in that set or represents a latent capability. If it is latent, state the dimensions and test the measurement model.
+  \item Write a coverage plan. Keep population, construct, and contrast requirements separate, and name the denominator for each.
+  \item Obtain authorized data and labels. Document provenance, instructions, reliability, validity evidence, diversity, and duplicate controls.
+  \item Add designed cases where important requirements are rare. Add paired interventions where the claim concerns invariance or directional response. State what changes, what stays fixed, and what the output should do.
+  \item Measure the sources of score variation across the reference sets that matter for the use. Report a profile, uncertainty, intended uses, and unsupported uses. Do not hide different claims inside one average.
+\end{enumerate}
+
+The order matters, but the work need not be linear. A failed pilot, a brittle intervention, or large variation across test forms may force a change in the claim or reference set. The revision must then run back through the coverage plan and scoring rule. Starting with available data and adding a metric later leaves the meaning of the score to chance. Starting with the claim makes each revision answerable to the same purpose \citep{gelman2026workflow}.
+
+\section*{Future}
+
+The audit should be expanded with independent coders and a larger probability sample. A second study should ask whether the best-performing procedure on one task is also the best on another. The relevant quantities are rank portability, the chance that the selected winner transfers, and the regret from selecting on the wrong task. The reference set must be the problems on which the procedure is intended to be used, not all the datasets that happen to be available. The task, not just the test example, is a sampling unit.
+
+A third study should test selective benchmarking. Do papers disproportionately report eligible benchmarks on which the proposed method looks good? Published tables alone cannot answer the question because results for omitted benchmarks are missing by construction. Eligibility must be defined without looking at results, and performance must be recovered for a sample of reported and unreported paper-benchmark pairs.
+
+The larger principle is simple. A benchmark should say what its score means, name what could have been different, cover the cases and response relations needed for the claim, and report how much the answer changes across those admissible repetitions.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

@@ -2,11 +2,14 @@ SHELL := /bin/sh
 TEXBIN := $(dir $(realpath $(shell command -v pdflatex)))
 export PATH := $(TEXBIN):$(PATH)
 
-.PHONY: all paper lint check clean
+.PHONY: all audit paper lint check clean
 
 all: check
 
-paper:
+audit:
+	python3 audit/analyze.py
+
+paper: audit
 	mkdir -p build
 	cd manuscript && latexmk -pdf -interaction=nonstopmode -halt-on-error -file-line-error -outdir=../build main.tex
 
